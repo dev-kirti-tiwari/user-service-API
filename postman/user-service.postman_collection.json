@@ -1,0 +1,215 @@
+{
+  "info": {
+    "name": "Triostack User Service v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Set the environment variables base_url, brr_token, tenant_id, organization_id, software_id, actor_user_id. Never commit real tokens."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{brr_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4021"
+    },
+    {
+      "key": "brr_token",
+      "value": ""
+    },
+    {
+      "key": "tenant_id",
+      "value": "1001"
+    },
+    {
+      "key": "organization_id",
+      "value": "5001"
+    },
+    {
+      "key": "software_id",
+      "value": "10"
+    },
+    {
+      "key": "actor_user_id",
+      "value": "501200"
+    },
+    {
+      "key": "user_id",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const path = pm.request.url.getPath();",
+          "if (path !== \"/health\" && path !== \"/ready\") {",
+          "  const token = (pm.variables.get(\"brr_token\") || \"\").trim();",
+          "  if (!token) { throw new Error(\"brr_token is empty. Open the collection > Variables and paste BRR_TOKEN into the CURRENT value of brr_token (or select the environment that has it), then Save.\"); }",
+          "  pm.request.headers.upsert({ key: \"Authorization\", value: \"Bearer \" + token });",
+          "  pm.request.headers.upsert({ key: \"X-Tenant-Id\", value: pm.variables.get(\"tenant_id\") });",
+          "  pm.request.headers.upsert({ key: \"X-Organization-Id\", value: pm.variables.get(\"organization_id\") });",
+          "  pm.request.headers.upsert({ key: \"X-Software-Id\", value: pm.variables.get(\"software_id\") });",
+          "  pm.request.headers.upsert({ key: \"X-User-Id\", value: pm.variables.get(\"actor_user_id\") });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "GET /health",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "GET /ready",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "url": "{{base_url}}/ready"
+      }
+    },
+    {
+      "name": "Create user",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 + string id', () => { pm.response.to.have.status(201); const id = pm.response.json().data.id; pm.expect(id).to.be.a('string'); pm.collectionVariables.set('user_id', id); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Aman\",\n  \"lastName\": \"Sharma\",\n  \"email\": \"aman.{{$timestamp}}@company.com\",\n  \"phone\": \"9876543210\",\n  \"roleId\": \"20\",\n  \"departmentId\": \"10\",\n  \"designation\": \"Sales Executive\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Read user",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/v1/users/{{user_id}}"
+      }
+    },
+    {
+      "name": "List users (search/filter/paginate)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/api/v1/users?status=active&search=aman&page=1&limit=20&sort=createdAt:desc",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "active"
+            },
+            {
+              "key": "search",
+              "value": "aman"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "20"
+            },
+            {
+              "key": "sort",
+              "value": "createdAt:desc"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update user",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/users/{{user_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"designation\": \"Senior Sales Executive\",\n  \"phone\": \"9999999999\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Change status",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/v1/users/{{user_id}}/status",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"inactive\" }"
+        }
+      }
+    },
+    {
+      "name": "Current user (/me)",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/v1/users/me"
+      }
+    },
+    {
+      "name": "Soft delete user",
+      "request": {
+        "method": "DELETE",
+        "url": "{{base_url}}/api/v1/users/{{user_id}}"
+      }
+    }
+  ]
+}

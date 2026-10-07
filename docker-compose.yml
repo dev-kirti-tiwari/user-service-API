@@ -1,0 +1,45 @@
+# LOCAL DEVELOPMENT stack (static token auth, DB port published). For production use docker-compose.prod.yml.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: triostack_users
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d triostack_users"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["node", "dist/scripts/migrate.js"]
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/triostack_users
+      NODE_ENV: development
+      AUTH_MODE: static
+      BRR_TOKEN: ${BRR_TOKEN:?set BRR_TOKEN in your shell or .env}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: .
+    ports:
+      - "${API_PORT:-4020}:4020"
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/triostack_users
+      NODE_ENV: development
+      AUTH_MODE: static
+      BRR_TOKEN: ${BRR_TOKEN:?set BRR_TOKEN in your shell or .env}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
